@@ -1,27 +1,50 @@
 package com.example.quiz;
 
+import java.util.List;
+
 public class QuestionModel {
-    private String question,optionA,optionB,optionC,optionD,correctANS;
+    private String ques,optionA,optionB,optionC,optionD,correct;
+    private List<String> options;
 
     public QuestionModel() {
         //For Firebase
     }
 
-    public QuestionModel(String question, String optionA, String optionB, String optionC, String optionD, String correctANS) {
-        this.question = question;
-        this.optionA = optionA;
-        this.optionB = optionB;
-        this.optionC = optionC;
-        this.optionD = optionD;
-        this.correctANS = correctANS;
+    public QuestionModel(String ques, String correct, List<String> options) {
+        this.ques = ques;
+        this.correct = correct;
+        this.options = options;
+        setOption(this.options);
     }
 
+    public void setOption(List<String> options){
+        for(int i = 0; i < options.size(); i++){
+            if(i == 0){
+                setOptionA(options.get(i));
+            }else if(i == 1){
+                setOptionB(options.get(i));
+            }else if(i == 2){
+                setOptionC(options.get(i));
+            }else if(i == 3){
+                setOptionD(options.get(i));
+            }
+        }
+    }
+//    public QuestionModel(String ques, String optionA, String optionB, String optionC, String optionD, String correctANS) {
+//        this.ques = ques;
+//        this.optionA = optionA;
+//        this.optionB = optionB;
+//        this.optionC = optionC;
+//        this.optionD = optionD;
+//        this.correctANS = correctANS;
+//    }
+
     public String getQuestion() {
-        return question;
+        return ques;
     }
 
     public void setQuestion(String question) {
-        this.question = question;
+        this.ques = question;
     }
 
     public String getOptionA() {
@@ -56,11 +79,17 @@ public class QuestionModel {
         this.optionD = optionD;
     }
 
-    public String getCorrectANS() {
-        return correctANS;
+    public String getcorrect() {
+        return correct;
     }
 
-    public void setCorrectANS(String correctANS) {
-        this.correctANS = correctANS;
+    public void setcorrect(String correct) {
+        this.correct = correct;
+    }
+
+    public int getNumberOfOptions(){
+        int size;
+        size = options.size();
+        return size;
     }
 }

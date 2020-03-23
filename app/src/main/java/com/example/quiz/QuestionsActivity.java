@@ -32,12 +32,16 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
+import static android.view.View.INVISIBLE;
+
 public class QuestionsActivity extends AppCompatActivity {
+
 
     public static final  String FILE_NAME = "Quiz";
     public static final  String KEY_NAME  = "Questions";
     FirebaseDatabase database = FirebaseDatabase.getInstance();
     DatabaseReference myRef = database.getReference();
+    //DatabaseReference qRef = database.getReference();
     private TextView question,noIndicator;
     private FloatingActionButton bookmarkBtn;
     private LinearLayout optionsContainer;
@@ -46,13 +50,14 @@ public class QuestionsActivity extends AppCompatActivity {
     private List<QuestionModel> list;
     private int position = 0;
     private int score = 0;
-    private String category;
+    private String courseID,level = "L1";
     private Dialog loadingdialog;
     private SharedPreferences preferences;
     private SharedPreferences.Editor editor;
     private Gson gson;
     private int matchedQuestionPosition;
     private List<QuestionModel> bookmarkslist;
+    private List<QuestionDetails> questionDetails;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,13 +75,14 @@ public class QuestionsActivity extends AppCompatActivity {
         editor = preferences.edit();
         gson = new Gson();
         getBookmarks();
-        category = getIntent().getStringExtra("category");
+        courseID = getIntent().getStringExtra("CourseID");
         loadingdialog = new Dialog(this);
         loadingdialog.setContentView(R.layout.loading);
         loadingdialog.getWindow().setBackgroundDrawable(getDrawable(R.drawable.rounded_corners));
         loadingdialog.getWindow().setLayout(LinearLayout.LayoutParams.WRAP_CONTENT,LinearLayout.LayoutParams.WRAP_CONTENT);
         loadingdialog.setCancelable(false);
         list = new ArrayList<>();
+        final List<QuestionDetails> questionDetails = new ArrayList<>();
 
         bookmarkBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -92,65 +98,82 @@ public class QuestionsActivity extends AppCompatActivity {
         });
 
         loadingdialog.show();
-        myRef.child("Category_Questions").child(category).child("questions").addListenerForSingleValueEvent(new ValueEventListener() {
+        myRef.child("Test").child(courseID).child("Levels").child(level).child("ques").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 for(DataSnapshot snapshot : dataSnapshot.getChildren()){
-                    list.add(snapshot.getValue(QuestionModel.class));
+                    questionDetails.add(snapshot.getValue(QuestionDetails.class));
                 }
-                if(list.size() > 0 ){
-                    for(int i = 0; i < 4; i++){
-                        optionsContainer.getChildAt(i).setOnClickListener(new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                checkAnswer((Button) v);
-                            }
-                        });
-                    }
-                    playAnime(question,0,list.get(position).getQuestion());
-                    nextBtn.setOnClickListener(new View.OnClickListener() {
+                for(int i = 0; i < questionDetails.size(); i++) {
+                    String tid = String.valueOf(questionDetails.get(i).getTypeId());
+                    //Toast.makeText(QuestionsActivity.this, tid+" "+questionDetails.get(i).getqID(), Toast.LENGTH_SHORT).show();
+                    myRef.child("Types").child(tid).child(questionDetails.get(i).getqID()).addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
-                        public void onClick(View v) {
-                            nextBtn.setEnabled(false);
-                            nextBtn.setAlpha(0.7f);
-                            enableoption(true);
-                            position++;
-                            if(position == list.size()){
-                                //score Activity
-                                Intent scoreIntent = new Intent(QuestionsActivity.this,ScoreActivity.class);
-                                scoreIntent.putExtra("score",score);
-                                scoreIntent.putExtra("total",list.size());
-                                startActivity(scoreIntent);
-                                finish();
-                                return;
+                        public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                            for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                list.add(snapshot.getValue(QuestionModel.class));
                             }
-                            count = 0;
-                            playAnime(question,0,list.get(position).getQuestion());
-                        }
-                    });
+                            if (list.size() > 0) {
+                                for (int i = 0; i < 4; i++) {
+                                    optionsContainer.getChildAt(i).setOnClickListener(new View.OnClickListener() {
+                                        @Override
+                                        public void onClick(View v) {
+                                            checkAnswer((Button) v);
+                                        }
+                                    });
+                                }
+                                playAnime(question, 0, list.get(position).getQuestion());
+                                nextBtn.setOnClickListener(new View.OnClickListener() {
+                                    @Override
+                                    public void onClick(View v) {
+                                        nextBtn.setEnabled(false);
+                                        nextBtn.setAlpha(0.7f);
+                                        enableoption(true);
+                                        position++;
+                                        if (position == list.size()) {
+                                            //score Activity
+                                            Intent scoreIntent = new Intent(QuestionsActivity.this, ScoreActivity.class);
+                                            scoreIntent.putExtra("score", score);
+                                            scoreIntent.putExtra("total", list.size());
+                                            startActivity(scoreIntent);
+                                            finish();
+                                            return;
+                                        }
+                                        count = 0;
+                                        playAnime(question, 0, list.get(position).getQuestion());
+                                    }
+                                });
 
-                    shareBtn.setOnClickListener(new View.OnClickListener() {
+                                shareBtn.setOnClickListener(new View.OnClickListener() {
+                                    @Override
+                                    public void onClick(View v) {
+                                        String body = list.get(position).getQuestion() + "\n" +
+                                                list.get(position).getOptionA() + "\n" +
+                                                list.get(position).getOptionB() + "\n" +
+                                                list.get(position).getOptionC() + "\n" +
+                                                list.get(position).getOptionD();
+                                        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                                        shareIntent.setType("text/plain");
+                                        shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Quiz Challange");
+                                        shareIntent.putExtra(Intent.EXTRA_TEXT, body);
+                                        startActivity(Intent.createChooser(shareIntent, "Share Via"));
+                                    }
+                                });
+                            } else {
+                                finish();
+                                Toast.makeText(QuestionsActivity.this, "No Questions Available", Toast.LENGTH_SHORT).show();
+                                loadingdialog.dismiss();
+                                finish();
+                            }
+                            loadingdialog.dismiss();
+                        }
+
                         @Override
-                        public void onClick(View v) {
-                            String body = list.get(position).getQuestion() + "\n" +
-                                        list.get(position).getOptionA() + "\n" +
-                                        list.get(position).getOptionB() + "\n" +
-                                        list.get(position).getOptionC() + "\n" +
-                                        list.get(position).getOptionD();
-                            Intent shareIntent = new Intent(Intent.ACTION_SEND);
-                            shareIntent.setType("text/plain");
-                            shareIntent.putExtra(Intent.EXTRA_SUBJECT,"Quiz Challange");
-                            shareIntent.putExtra(Intent.EXTRA_TEXT,body);
-                            startActivity(Intent.createChooser(shareIntent,"Share Via"));
+                        public void onCancelled(@NonNull DatabaseError databaseError) {
+                            Toast.makeText(QuestionsActivity.this, databaseError.getMessage(), Toast.LENGTH_SHORT).show();
                         }
                     });
-                }else {
-                    finish();
-                    Toast.makeText(QuestionsActivity.this, "No Questions Available", Toast.LENGTH_SHORT).show();
-                    loadingdialog.dismiss();
-                    finish();
                 }
-                loadingdialog.dismiss();
             }
 
             @Override
@@ -158,6 +181,8 @@ public class QuestionsActivity extends AppCompatActivity {
                 Toast.makeText(QuestionsActivity.this, databaseError.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+
+
     }
 
     @Override
@@ -178,9 +203,17 @@ public class QuestionsActivity extends AppCompatActivity {
                     }else if(count == 1){
                         option = list.get(position).getOptionB();
                     }else if(count == 2){
-                        option = list.get(position).getOptionC();
+                        if(list.get(position).getNumberOfOptions() == 3) {
+                            option = list.get(position).getOptionC();
+                        }else{
+                            optionsContainer.getChildAt(count).setVisibility(INVISIBLE);
+                        }
                     }else if(count == 3){
-                        option = list.get(position).getOptionD();
+                        if(list.get(position).getNumberOfOptions() == 4) {
+                            option = list.get(position).getOptionD();
+                        }else{
+                            optionsContainer.getChildAt(count).setVisibility(INVISIBLE);
+                        }
                     }
                     playAnime(optionsContainer.getChildAt(count),0,option);
                     count++;
@@ -223,14 +256,14 @@ public class QuestionsActivity extends AppCompatActivity {
         enableoption(false);
         nextBtn.setEnabled(true);
         nextBtn.setAlpha(1);
-        if(selectedoption.getText().toString().equals(list.get(position).getCorrectANS())){
+        if(selectedoption.getText().toString().equals(list.get(position).getcorrect())){
             //correct
             score++;
             selectedoption.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50")));
         }else{
             //incorrect
             selectedoption.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FF0000")));
-            Button correctoption = (Button) optionsContainer.findViewWithTag(list.get(position).getCorrectANS());
+            Button correctoption = (Button) optionsContainer.findViewWithTag(list.get(position).getcorrect());
             correctoption.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50")));
         }
     }
@@ -258,7 +291,7 @@ public class QuestionsActivity extends AppCompatActivity {
         int i = 0;
         for(QuestionModel model :bookmarkslist){
             if(model.getQuestion().equals(list.get(position).getQuestion())
-            && model.getCorrectANS().equals(list.get(position).getCorrectANS())){
+            && model.getcorrect().equals(list.get(position).getcorrect())){
                 matched = true;
                 matchedQuestionPosition = i;
             }
